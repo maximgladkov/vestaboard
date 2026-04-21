@@ -12,10 +12,10 @@ row 2: +N TO GO
 ```
 
 - Row 0 always starts with `NEXT` followed by a label and the BTC value
-  right-aligned. Label rules:
-  - `HHMM` if the next event is today (local time), e.g. `NEXT 1230  104K`
+  (full rounded dollar price, no `K` suffix) right-aligned. Label rules:
+  - `HHMM` if the next event is today (local time), e.g. `NEXT 1230104321`
   - `TDY` if it's an all-day event today
-  - `MON` / `TUE` / ... / `SUN` if it's on a different day, e.g. `NEXT WED   104K`
+  - `MON` / `TUE` / ... / `SUN` if it's on a different day, e.g. `NEXT WED 104321`
 - Row 1 is a summary of the next meeting's title, at most 15 characters.
 - Row 2 shows how many additional meetings fall on the same calendar date
   as the next meeting:

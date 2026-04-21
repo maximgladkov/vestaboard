@@ -39,12 +39,11 @@ def fetch_btc_price() -> float | None:
         return None
 
 
-def format_btc_k(price: float | None) -> str:
-    """Round to the nearest thousand and render as '<N>K'.
+def format_btc(price: float | None) -> str:
+    """Render BTC price as a rounded integer dollar amount, e.g. ``104321``.
 
-    Returns '---K' when the price is unavailable.
+    Returns ``------`` when the price is unavailable.
     """
     if price is None:
-        return "---K"
-    thousands = int(round(price / 1000.0))
-    return f"{thousands}K"
+        return "------"
+    return f"{int(round(price))}"

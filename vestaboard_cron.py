@@ -27,7 +27,7 @@ from pathlib import Path
 
 from vesta.claude import summarize_title
 from vesta.gcal import add_account, fetch_next_events, list_configured_accounts
-from vesta.hyperliquid import fetch_btc_price, format_btc_k
+from vesta.hyperliquid import fetch_btc_price, format_btc
 from vesta.render import COLS, compose_grid
 from vesta.vestaboard import (
     VALID_TRANSITIONS,
@@ -163,7 +163,7 @@ def main(argv: list[str] | None = None) -> int:
         events = []
 
     btc_price = fetch_btc_price()
-    btc_label = format_btc_k(btc_price)
+    btc_label = format_btc(btc_price)
     log.info("btc=%s events=%d", btc_label, len(events))
     for ev in events:
         log.info(

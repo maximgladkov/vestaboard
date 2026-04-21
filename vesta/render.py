@@ -1,9 +1,12 @@
 """Compose the 15x3 Vestaboard Note grid.
 
 Layout:
-    row 0: NEXT <label>        <BTC>     e.g. ``NEXT 1230  104K`` / ``NEXT WED   104K``
+    row 0: NEXT <label>  <BTC>     e.g. ``NEXT 1230 104321`` / ``NEXT WED 104321``
     row 1: <summary of the next meeting, up to 15 chars>
     row 2: +N TO GO  (next is today) / +N MORE (next is another day) / blank
+
+BTC is the full rounded dollar price (no ``K`` suffix), right-aligned. The
+``NEXT`` prefix is truncated to whatever horizontal room remains.
 
 Row 2's count is how many additional events fall on the same calendar date
 as the next meeting. When no upcoming meetings are known, row 0 shows
