@@ -3,6 +3,7 @@ token.json
 tokens/
 credentials.json
 .last_grid
+.cache.json
 cron.log
 __pycache__/
 *.pyc

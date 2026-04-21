@@ -5,9 +5,12 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from pathlib import Path
 
 import requests
+
+from .cache import Cache
+
+LAST_GRID_CACHE_KEY = "vesta:last_grid_hash"
 
 API_URL = "https://cloud.vestaboard.com/"
 TRANSITION_URL = "https://cloud.vestaboard.com/transition"
@@ -26,20 +29,20 @@ def _grid_hash(grid: list[list[int]]) -> str:
 def send_grid(
     grid: list[list[int]],
     api_key: str,
-    cache_path: Path | str = ".last_grid",
+    cache: Cache,
     force: bool = False,
 ) -> bool:
-    """Send `grid` to Vestaboard. Returns True if a request was made.
+    """Send ``grid`` to Vestaboard. Returns True if a request was made.
 
     Skips the POST when the grid is identical to the last successfully
-    sent one (tracked in `cache_path`), so cron can run frequently without
-    hitting the 1 msg / 15s rate limit.
+    sent one (tracked in ``cache`` under ``LAST_GRID_CACHE_KEY``), so cron
+    can run frequently without hitting the 1 msg / 15s rate limit.
     """
-    cache_path = Path(cache_path)
     new_hash = _grid_hash(grid)
 
-    if not force and cache_path.exists():
-        if cache_path.read_text().strip() == new_hash:
+    if not force:
+        prev = cache.get(LAST_GRID_CACHE_KEY)
+        if prev and prev.strip() == new_hash:
             log.info("grid unchanged, skipping send")
             return False
 
@@ -63,7 +66,7 @@ def send_grid(
         body = {}
     log.info("vestaboard send ok: %s", body)
 
-    cache_path.write_text(new_hash)
+    cache.set(LAST_GRID_CACHE_KEY, new_hash)
     return True
 
 

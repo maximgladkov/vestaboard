@@ -38,6 +38,12 @@ truncated raw title.
 Override the model with `ANTHROPIC_MODEL=...` in `.env` (defaults to
 `claude-haiku-4-5`). Disable AI entirely with `--no-ai`.
 
+Summaries are cached keyed by the event's (account, title, start, budget,
+model) so the next cron run reuses the previous Claude response as long
+as the "next" meeting is still the same one. The cache also stores the
+hash of the last sent grid, so the Vestaboard send is skipped when
+nothing changed. See [Caching](#caching) below.
+
 ## Setup
 
 1. Create and activate a virtualenv, then install dependencies:
@@ -121,6 +127,27 @@ python vestaboard_cron.py --set-transition wave fast
 Valid transitions: `classic`, `wave`, `drift`, `curtain`.
 Valid speeds: `gentle`, `fast`.
 
+## Caching
+
+To avoid unnecessary Claude calls and unnecessary Vestaboard sends, the
+script persists two things between runs:
+
+- the Claude summary for the current "next" meeting
+  (key: `vesta:claude:<hash(account|title|start|budget|model)>`, 30-day TTL)
+- the SHA-256 of the last grid actually POSTed to Vestaboard
+  (key: `vesta:last_grid_hash`)
+
+Backends, in order of preference:
+
+1. Redis, when `REDIS_URL` (or `CACHE_REDIS_URL`) is set. Required on
+   render.com cron jobs, which run in ephemeral containers with no
+   persistent disk.
+2. A local `.cache.json` file, as a zero-config fallback for development.
+
+Any Redis-compatible URL works, e.g. a Render Key-Value service
+(`redis://...` internal URL) or Upstash Redis (`rediss://...`). Failures
+to reach Redis fall back to the file cache automatically.
+
 ## Cron
 
 Every 5 minutes (Vestaboard rate-limits to 1 msg / 15s; the script also
@@ -130,6 +157,26 @@ skips sending if the rendered grid is unchanged):
 */5 * * * * cd /Users/mgladkov/Projects/personal/vestaboard && /Users/mgladkov/Projects/personal/vestaboard/.venv/bin/python vestaboard_cron.py >> cron.log 2>&1
 ```
 
+### Render.com
+
+Deploy as a Render Cron Job:
+
+1. Create a Render **Key-Value** (Redis) service in the same region.
+2. Create a **Cron Job** pointing at this repo.
+   - Build command: `pip install -r requirements.txt`
+   - Command: `python vestaboard_cron.py`
+   - Schedule: e.g. `*/5 * * * *`
+3. Set environment variables on the cron job:
+   - `VESTABOARD_API_KEY`, `ANTHROPIC_API_KEY`, `TZ`
+   - `GOOGLE_CREDENTIALS_JSON` and one `GOOGLE_TOKEN_<NAME>` per account
+     (see above — authorize locally first, then copy the JSON into env vars)
+   - `REDIS_URL` = the Key-Value service's **Internal** Redis URL
+
+Render cron jobs have no persistent disk, so `REDIS_URL` is how the
+Claude summary and last-grid hash survive between runs. Without it the
+script still works but will call Claude and POST to Vestaboard on every
+run.
+
 ## Files
 
 - `vestaboard_cron.py` — entry point
@@ -138,4 +185,5 @@ skips sending if the rendered grid is unchanged):
 - `vesta/gcal.py` — Google Calendar fetch
 - `vesta/render.py` — 15x3 grid composition (NEXT / summary / +N TO GO)
 - `vesta/claude.py` — Claude-powered title summarization for row 1
+- `vesta/cache.py` — Redis/file KV used to cache summaries + grid hash
 - `vesta/vestaboard.py` — Vestaboard API client with idempotency cache

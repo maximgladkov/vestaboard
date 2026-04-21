@@ -25,7 +25,8 @@ import os
 import sys
 from pathlib import Path
 
-from vesta.claude import summarize_title
+from vesta.cache import get_cache
+from vesta.claude import SUMMARY_CACHE_TTL_SECONDS, event_cache_key, summarize_title
 from vesta.gcal import add_account, fetch_next_events, list_configured_accounts
 from vesta.hyperliquid import fetch_btc_price, format_btc
 from vesta.render import COLS, compose_grid
@@ -173,13 +174,22 @@ def main(argv: list[str] | None = None) -> int:
             ev.start.isoformat(),
         )
 
+    cache = get_cache(root / ".cache.json")
+
     claude_summary: str | None = None
     if events and not args.no_ai:
-        claude_summary = summarize_title(events[0], max_chars=COLS)
-        if claude_summary:
-            log.info("claude summary: %r", claude_summary)
+        key = event_cache_key(events[0], max_chars=COLS)
+        cached = cache.get(key)
+        if cached:
+            log.info("claude summary cache hit: %r", cached)
+            claude_summary = cached
         else:
-            log.info("no claude summary; falling back to raw title")
+            claude_summary = summarize_title(events[0], max_chars=COLS)
+            if claude_summary:
+                log.info("claude summary: %r", claude_summary)
+                cache.set(key, claude_summary, ttl_seconds=SUMMARY_CACHE_TTL_SECONDS)
+            else:
+                log.info("no claude summary; falling back to raw title")
 
     grid = compose_grid(events, btc_label, claude_summary=claude_summary)
 
@@ -194,7 +204,7 @@ def main(argv: list[str] | None = None) -> int:
         send_grid(
             grid,
             api_key=api_key,
-            cache_path=root / ".last_grid",
+            cache=cache,
             force=args.force,
         )
     except Exception:

@@ -10,6 +10,7 @@ the caller falls back to a simple truncation.
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 
@@ -18,6 +19,27 @@ from .gcal import Event
 
 DEFAULT_MODEL = "claude-haiku-4-5"
 MAX_AUTOFIX_ROUNDS = 3
+SUMMARY_CACHE_TTL_SECONDS = 30 * 24 * 3600
+
+
+def event_cache_key(event: Event, max_chars: int, model: str | None = None) -> str:
+    """Stable key for a Claude summary of ``event`` at the given budget.
+
+    Keyed by account + title + start + budget + model so any meaningful
+    change invalidates the cached summary automatically.
+    """
+    resolved_model = model or os.environ.get("ANTHROPIC_MODEL", DEFAULT_MODEL)
+    raw = "|".join(
+        [
+            event.account or "",
+            event.title or "",
+            event.start.isoformat(),
+            str(max_chars),
+            resolved_model,
+        ]
+    )
+    digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:16]
+    return f"vesta:claude:{digest}"
 
 log = logging.getLogger(__name__)
 
