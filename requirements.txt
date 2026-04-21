@@ -5,3 +5,4 @@ google-auth-httplib2>=0.2.0
 google-auth-oauthlib>=1.2.0
 python-dateutil>=2.9.0
 tzlocal>=5.2
+anthropic>=0.39.0

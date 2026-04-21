@@ -1,12 +1,13 @@
 """Compose the 15x3 Vestaboard Note grid.
 
 Layout:
-    row 0: <meeting 1 title>            NNNK    (BTC right-aligned)
-    row 1: HHMM <meeting 2 title>
-    row 2: HHMM <meeting 3 title>
+    row 0: NEXT <label>        <BTC>     e.g. ``NEXT 1230  104K`` / ``NEXT WED   104K``
+    row 1: <summary of the next meeting, up to 15 chars>
+    row 2: +N TO GO  (next is today) / +N MORE (next is another day) / blank
 
-Meetings beyond what fits, or a missing BTC value, degrade gracefully
-(blank rows / "---K").
+Row 2's count is how many additional events fall on the same calendar date
+as the next meeting. When no upcoming meetings are known, row 0 shows
+``NO MTGS`` + BTC and rows 1-2 are blank.
 """
 
 from __future__ import annotations
@@ -16,31 +17,13 @@ from typing import Sequence
 
 from tzlocal import get_localzone
 
-from .chars import BLANK, text_to_codes, sanitize
+from .chars import BLANK, sanitize, text_to_codes
 from .gcal import Event
 
 COLS = 15
 ROWS = 3
 
-
 _WEEKDAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
-
-
-def _time_label(event: Event, now_local: dt.datetime) -> str:
-    local = event.start.astimezone(now_local.tzinfo)
-    if local.date() == now_local.date():
-        if event.all_day:
-            return "TDY"
-        return local.strftime("%H%M")
-    return _WEEKDAYS[local.weekday()]
-
-
-def _fit(text: str, width: int) -> str:
-    clean = sanitize(text).strip()
-    clean = " ".join(clean.split())
-    if len(clean) <= width:
-        return clean.ljust(width)
-    return clean[:width]
 
 
 def _row_codes(text: str) -> list[int]:
@@ -50,33 +33,72 @@ def _row_codes(text: str) -> list[int]:
     return codes[:COLS]
 
 
-def compose_grid(events: Sequence[Event], btc_label: str) -> list[list[int]]:
+def _next_label(event: Event, now_local: dt.datetime) -> str:
+    local = event.start.astimezone(now_local.tzinfo)
+    if local.date() == now_local.date():
+        if event.all_day:
+            return "TDY"
+        return local.strftime("%H%M")
+    return _WEEKDAYS[local.weekday()]
+
+
+def _compose_row0(prefix: str, btc_label: str) -> str:
+    btc = (btc_label or "")[:COLS]
+    left_width = max(0, COLS - len(btc))
+    left = sanitize(prefix)[:left_width].ljust(left_width)
+    return (left + btc)[:COLS]
+
+
+def _compose_row1(event: Event | None, claude_summary: str | None) -> str:
+    if event is None:
+        return " " * COLS
+    if claude_summary:
+        cleaned = sanitize(claude_summary).strip()[:COLS]
+    else:
+        cleaned = sanitize(event.title).strip()
+        cleaned = " ".join(cleaned.split())
+        cleaned = cleaned[:COLS]
+    return cleaned.ljust(COLS)[:COLS]
+
+
+def _count_same_day(
+    events: Sequence[Event], now_local: dt.datetime
+) -> tuple[int, bool]:
+    """Count additional events that fall on the same calendar date as the
+    next meeting. Returns (count, is_today)."""
+    if len(events) <= 1:
+        return 0, True
+    tz = now_local.tzinfo
+    pivot_date = events[0].start.astimezone(tz).date()
+    count = sum(
+        1 for ev in events[1:] if ev.start.astimezone(tz).date() == pivot_date
+    )
+    return count, pivot_date == now_local.date()
+
+
+def _compose_row2(count: int, is_today: bool) -> str:
+    if count <= 0:
+        return " " * COLS
+    word = "TO GO" if is_today else "MORE"
+    return f"+{count} {word}".ljust(COLS)[:COLS]
+
+
+def compose_grid(
+    events: Sequence[Event],
+    btc_label: str,
+    claude_summary: str | None = None,
+) -> list[list[int]]:
     now_local = dt.datetime.now(get_localzone())
 
-    btc_label = btc_label.strip()
-    if len(btc_label) > COLS:
-        btc_label = btc_label[-COLS:]
-
-    rows: list[list[int]] = []
-
-    title_width_row0 = max(0, COLS - len(btc_label) - 1)
     if events:
-        meeting1_title = _fit(events[0].title, title_width_row0) if title_width_row0 > 0 else ""
+        label = _next_label(events[0], now_local)
+        prefix = f"NEXT {label} "
     else:
-        meeting1_title = " " * title_width_row0
-    row0_text = meeting1_title
-    row0_text = row0_text.ljust(COLS - len(btc_label)) + btc_label
-    rows.append(_row_codes(row0_text))
+        prefix = "NO MTGS "
 
-    for i in (1, 2):
-        if i < len(events):
-            ev = events[i]
-            label = _time_label(ev, now_local)
-            remaining = COLS - len(label) - 1
-            title = _fit(ev.title, remaining) if remaining > 0 else ""
-            row_text = f"{label} {title}" if remaining > 0 else label
-        else:
-            row_text = ""
-        rows.append(_row_codes(row_text.ljust(COLS)))
+    row0 = _compose_row0(prefix, btc_label)
+    row1 = _compose_row1(events[0] if events else None, claude_summary)
+    count, is_today = _count_same_day(events, now_local)
+    row2 = _compose_row2(count, is_today)
 
-    return rows
+    return [_row_codes(row0), _row_codes(row1), _row_codes(row2)]
