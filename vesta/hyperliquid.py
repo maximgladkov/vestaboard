@@ -40,10 +40,10 @@ def fetch_btc_price() -> float | None:
 
 
 def format_btc(price: float | None) -> str:
-    """Render BTC price as a rounded integer dollar amount, e.g. ``104321``.
+    """Render BTC price rounded to the nearest hundred dollars, e.g. ``104300``.
 
     Returns ``------`` when the price is unavailable.
     """
     if price is None:
         return "------"
-    return f"{int(round(price))}"
+    return f"{int(round(price / 100.0)) * 100}"
