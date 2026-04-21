@@ -1,0 +1,10 @@
+.env
+token.json
+tokens/
+credentials.json
+.last_grid
+cron.log
+__pycache__/
+*.pyc
+.venv/
+venv/
