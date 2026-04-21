@@ -56,6 +56,15 @@ def send_grid(
         timeout=15,
     )
 
+    if resp.status_code == 423:
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {}
+        if body.get("type") == "QuietHours":
+            log.info("vestaboard quiet hours, skipping send")
+            return False
+
     if resp.status_code >= 400:
         log.error("vestaboard send failed: %s %s", resp.status_code, resp.text)
         resp.raise_for_status()
