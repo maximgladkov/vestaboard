@@ -1,12 +1,15 @@
 """Compose the 15x3 Vestaboard Note grid.
 
 Layout:
-    row 0: NEXT <label>  <BTC>     e.g. ``NEXT 1230 104321`` / ``NEXT WED 104321``
+    row 0: <DAY> <HHMM>  <BTC>     e.g. ``TDY 0915 104321`` / ``WED 1035 104321``
     row 1: <summary of the next meeting, up to 15 chars>
     row 2: +N TO GO  (next is today) / +N MORE (next is another day) / blank
 
-BTC is the full rounded dollar price (no ``K`` suffix), right-aligned. The
-``NEXT`` prefix is truncated to whatever horizontal room remains.
+Day label is ``TDY`` when the next meeting is today, otherwise the weekday
+abbreviation (``MON``..``SUN``). All-day events drop the time (e.g.
+``TDY 104321`` / ``WED 104321``). BTC is the full rounded dollar price
+(no ``K`` suffix), right-aligned; the left-side prefix is truncated to
+whatever horizontal room remains.
 
 Row 2's count is how many additional events fall on the same calendar date
 as the next meeting. When no upcoming meetings are known, row 0 shows
@@ -39,10 +42,12 @@ def _row_codes(text: str) -> list[int]:
 def _next_label(event: Event, now_local: dt.datetime) -> str:
     local = event.start.astimezone(now_local.tzinfo)
     if local.date() == now_local.date():
-        if event.all_day:
-            return "TDY"
-        return local.strftime("%H%M")
-    return _WEEKDAYS[local.weekday()]
+        day = "TDY"
+    else:
+        day = _WEEKDAYS[local.weekday()]
+    if event.all_day:
+        return day
+    return f"{day} {local.strftime('%H%M')}"
 
 
 def _compose_row0(prefix: str, btc_label: str) -> str:
@@ -94,8 +99,7 @@ def compose_grid(
     now_local = dt.datetime.now(get_localzone())
 
     if events:
-        label = _next_label(events[0], now_local)
-        prefix = f"NEXT {label} "
+        prefix = f"{_next_label(events[0], now_local)} "
     else:
         prefix = "NO MTGS "
 

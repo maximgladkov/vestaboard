@@ -6,16 +6,17 @@ and the current BTC price from Hyperliquid.
 ## Layout (15 cols x 3 rows)
 
 ```
-row 0: NEXT <label>  <BTC>
+row 0: <DAY> <HHMM>  <BTC>
 row 1: <summary of the next meeting>
 row 2: +N TO GO
 ```
 
-- Row 0 always starts with `NEXT` followed by a label and the BTC value
-  (full rounded dollar price, no `K` suffix) right-aligned. Label rules:
-  - `HHMM` if the next event is today (local time), e.g. `NEXT 1230104321`
-  - `TDY` if it's an all-day event today
-  - `MON` / `TUE` / ... / `SUN` if it's on a different day, e.g. `NEXT WED 104321`
+- Row 0 is the next meeting's day + start time on the left, and the BTC
+  value (full rounded dollar price, no `K` suffix) right-aligned. Label
+  rules:
+  - `TDY <HHMM>` if the next event is today (local time), e.g. `TDY 0915 104321`
+  - `<DAY> <HHMM>` on another day, e.g. `WED 1035 104321`
+  - `TDY` or `<DAY>` alone for all-day events (no time component)
 - Row 1 is a summary of the next meeting's title, at most 15 characters.
 - Row 2 shows how many additional meetings fall on the same calendar date
   as the next meeting:
