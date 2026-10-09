@@ -38,6 +38,8 @@ from vesta.vestaboard import (
     set_transition,
 )
 
+SHOW_BTC = False
+
 
 def _load_dotenv(path: Path) -> None:
     if not path.exists():
@@ -163,9 +165,12 @@ def main(argv: list[str] | None = None) -> int:
         log.exception("failed to fetch calendar events")
         events = []
 
-    btc_price = fetch_btc_price()
-    btc_label = format_btc(btc_price)
-    log.info("btc=%s events=%d", btc_label, len(events))
+    if SHOW_BTC:
+        btc_price = fetch_btc_price()
+        btc_label = format_btc(btc_price)
+    else:
+        btc_label = ""
+    log.info("btc=%s events=%d", btc_label or "hidden", len(events))
     for ev in events:
         log.info(
             "  [%s] %s @ %s",
